@@ -139,3 +139,23 @@ def transform(image, npx=128, is_crop=False):
 
 def inverse_transform(images):
     return (images + 1.) / 2.
+
+
+# Reading tfrecords data
+def read_records(filenames, num_epochs=10000):
+
+    with tf.name_scope('input'):
+
+        dataset = tf.data.TFRecordDataset(filename)
+        dataset = dataset.repeat(num_epochs)
+
+        # map takes a python function and applies it to every sample
+        dataset = dataset.map(decode)
+        dataset = dataset.map(normalize)
+
+        #the parameter is the queue size
+        dataset = dataset.shuffle(1000 + 3 * batch_size)
+        dataset = dataset.batch(batch_size)
+
+        iterator = dataset.make_one_shot_iterator()
+        return iterator.get_next()

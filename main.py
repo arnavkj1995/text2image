@@ -3,7 +3,7 @@ import scipy.misc
 import os
 import sys
 
-from model import ECGAN
+from model import layout_GAN
 from utils import pp
 import tensorflow as tf
 
@@ -34,10 +34,12 @@ flags.DEFINE_integer("pre_train_iters", 2000,
                       "Number of iterations to pre-train D")
 flags.DEFINE_integer("num_keypoints", 68,
                       "Number of keypoints extracted in the face")
+flags.DEFINE_integer("num_epochs", 1000,
+                      "Number of epochs to train the model")
 flags.DEFINE_float("lam", 0.1,
                       "lam for impainting")
 
-dataset = "celebA"
+dataset = "cub"
 comment ="model_weights"
 
 flags.DEFINE_float(
@@ -93,7 +95,7 @@ def main(_):
     config.gpu_options.allow_growth = True
     
     with tf.Session(config = tf.ConfigProto(gpu_options=gpu_options)) as sess:
-        dcgan = ECGAN(sess)
+        dcgan = layout_GAN(sess)
         dcgan.train()
 
 if __name__ == '__main__':

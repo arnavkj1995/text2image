@@ -8,7 +8,6 @@ from ops import *
 import scipy.misc
 import numpy as np
 import tensorflow as tf
-import poissonblending
 from six.moves import xrange
 from skimage.measure import compare_psnr
 from skimage.measure import compare_mse
@@ -24,6 +23,7 @@ class layout_GAN(object):
         self.k_dim = 16
         self.image_shape = [F.output_size, F.output_size, 3]
         self.build_model()
+        self.iterations = 11788 // F.batch_size
         if F.output_size == 64:
             self.is_crop = True
         else:
@@ -45,7 +45,7 @@ class layout_GAN(object):
                 self.keypoints = tf.image.resize_images(self.keypoints, (64, 64))
 
             self.images = (self.images / 127.5) - 1
-            self.keypoints = (self.keypoints / 127.5) - 1
+            # self.keypoints = (self.keypoints / 255.0)
 
         else:    
             self.images = tf.placeholder(tf.float32,
@@ -53,6 +53,7 @@ class layout_GAN(object):
                                         F.c_dim],
                                        name='real_images')
             self.keypoints = tf.placeholder(tf.float32, [F.batch_size, F.output_size, F.output_size, F.c_dim], name='keypts')
+            self.text_emb = tf.placeholder(tf.float32, [F.batch_size, 1024], name='text_emb')
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')        
         self.z_gen = tf.placeholder(tf.float32, [F.batch_size, F.z_dim], name='z')
@@ -86,6 +87,7 @@ class layout_GAN(object):
     def train(self):
         # main method for training conditonal GAN
 
+        # data = dataset()
         global_step = tf.placeholder(tf.int32, [], name="global_step_iterations")
 
         learning_rate_D = tf.train.exponential_decay(F.learning_rate_D, global_step,
@@ -132,21 +134,30 @@ class layout_GAN(object):
                 start_time = time.time()
                 step += 1
 
-                # sample a noise vector 
-                sample_z_gen = np.random.uniform(
-                        self.ra, self.rb, [F.batch_size, F.z_dim]).astype(np.float32)
+                # batch_iter = data.batch()
 
-                # Update D network
-                iters = 1
-                if True: 
+                for iteration in range(self.iterations):
+                    # sample a noise vector 
+                    sample_z_gen = np.random.uniform(
+                            self.ra, self.rb, [F.batch_size, F.z_dim]).astype(np.float32)
+
+                    # Update D network
+                    iters = 1
+                    feed_dict = {
+                      # self.images: zip(*sample_images)[0], 
+                      # self.text_emb: zip(*sample_images)[1],
+                      # self.real_labels: zip(*sample_images)[2],
+                      self.z_gen: sample_z_gen,
+                      self.is_training: True
+                    }
+
                     train_summary, _, dloss, errD_fake, errD_real = self.sess.run(
                             [self.summary_op, d_optim,  self.d_loss, self.d_loss_fake, self.d_loss_real],
                             feed_dict={self.z_gen: sample_z_gen, global_step: counter, self.is_training: True})
                     writer.add_summary(train_summary, counter)
 
-                # Update G network
-                iters = 1  # can play around 
-                if True :
+                    # Update G network
+                    iters = 1  # can play around 
                     for iter_gen in range(iters):
                         sample_z_gen = np.random.uniform(self.ra, self.rb,
                             [F.batch_size, F.z_dim]).astype(np.float32)
@@ -154,34 +165,34 @@ class layout_GAN(object):
                             [g_optim,  self.g_loss_actual, self.d_loss],
                             feed_dict={self.z_gen: sample_z_gen, global_step: counter, self.is_training: True})
                        
-                lrateD = learning_rate_D.eval({global_step: counter})
-                lrateG = learning_rate_G.eval({global_step: counter})
+                    lrateD = learning_rate_D.eval({global_step: counter})
+                    lrateG = learning_rate_G.eval({global_step: counter})
 
-                print(("Iteration: [%6d] lrateD:%.2e lrateG:%.2e d_loss_f:%.8f d_loss_r:%.8f " +
-                      "g_loss_act:%.8f")
-                      % (idx, lrateD, lrateG, errD_fake, errD_real, gloss))
+                    print(("Iteration: [%6d] lrateD:%.2e lrateG:%.2e d_loss_f:%.8f d_loss_r:%.8f " +
+                          "g_loss_act:%.8f")
+                          % (idx, lrateD, lrateG, errD_fake, errD_real, gloss))
 
-                # peridically save generated images with corresponding checkpoints
+                    # peridically save generated images with corresponding checkpoints
 
-                if np.mod(counter, F.sampleInterval) == 0:
-                    sample_z_gen = np.random.uniform(self.ra, self.rb, [F.batch_size, F.z_dim]).astype(np.float32)
-                    samples, key_pts,  d_loss, g_loss_actual = self.sess.run(
-                        [self.G, self.keypoints,  self.d_loss, self.g_loss_actual],
-                        feed_dict={self.z_gen: sample_z_gen, global_step: counter, self.is_training: False}
-                    )
-                    save_images(samples, [8, 8],
-                                F.sample_dir + "/sample_" + str(counter) + ".png")
-                    save_images(key_pts,  [8, 8],  
-                                F.sample_dir + "/sampleky_" + str(counter) + ".png")
-                    print("new samples stored!!")
-                 
-                # periodically save checkpoints for future loading
-                if np.mod(counter, F.saveInterval) == 0:
-                    self.save(F.checkpoint_dir, counter)
-                    print("Checkpoint saved successfully !!!")
+                    if np.mod(counter, F.sampleInterval) == 0:
+                        sample_z_gen = np.random.uniform(self.ra, self.rb, [F.batch_size, F.z_dim]).astype(np.float32)
+                        samples, key_pts,  d_loss, g_loss_actual = self.sess.run(
+                            [self.G, self.keypoints,  self.d_loss, self.g_loss_actual],
+                            feed_dict={self.z_gen: sample_z_gen, global_step: counter, self.is_training: False}
+                        )
+                        save_images(samples, [8, 8],
+                                    F.sample_dir + "/sample_" + str(counter) + ".png")
+                        save_images(key_pts,  [8, 8],  
+                                    F.sample_dir + "/samplemsk_" + str(counter) + ".png")
+                        print("new samples stored!!")
+                     
+                    # periodically save checkpoints for future loading
+                    if np.mod(counter, F.saveInterval) == 0:
+                        self.save(F.checkpoint_dir, counter)
+                        print("Checkpoint saved successfully !!!")
 
-                counter += 1
-                idx += 1
+                    counter += 1
+                    idx += 1
                 
         except tf.errors.OutOfRangeError:
             print('Done training for %d epochs, %d steps.' % (F.num_epochs, step))
@@ -272,7 +283,7 @@ class layout_GAN(object):
                   h4 = lrelu(batch_norm(name='d_bn4')(conv2d(h3, dim * 16, name='d_h4_conv'), self.is_training))
                   h4 = tf.reshape(h4, [F.batch_size, -1])
                   h4 = tf.concat([h4, text_emb], 1)
-                  h4 = tf.linear(h4, 128, 'd_h4_lin')
+                  h4 = linear(h4, 128, 'd_h4_lin')
                   h5 = linear(h4, 1, 'd_h5_lin')
                   return tf.nn.sigmoid(h5), h5
 
@@ -283,7 +294,7 @@ class layout_GAN(object):
                   h3 = lrelu(batch_norm(name='d_bn3')(conv2d(h2, dim * 8, name='d_h3_conv'), self.is_training))
                   h4 = tf.reshape(h3, [F.batch_size, -1])
                   h4 = tf.concat([h4, text_emb], 1)
-                  h4 = tf.linear(h4, 128, 'd_h4_lin')
+                  h4 = linear(h4, 128, 'd_h4_lin')
                   h5 = linear(h4, 1, 'd_h5_lin')
                   return tf.nn.sigmoid(h5), h5
 
@@ -292,7 +303,7 @@ class layout_GAN(object):
         k = 5
         with tf.variable_scope("G"):
               s2, s4, s8, s16 = int(F.output_size / 2), int(F.output_size / 4), int(F.output_size / 8), int(F.output_size / 16)
-              text_emb = tf.linear(text_emb, 128, 'g_text_emb_lin')
+              text_emb = linear(text_emb, 128, 'g_text_emb_lin')
 
               z = tf.concat([z, text_emb], 1)
               z = tf.reshape(z, [F.batch_size, 1, 1, 228])

@@ -182,7 +182,7 @@ class layout_GAN(object):
                         )
                         save_images(samples, [8, 8],
                                     F.sample_dir + "/sample_" + str(counter) + ".png")
-                        save_images((key_pts - 0.5) * 2,  [8, 8],  
+                        save_images(key_pts,  [8, 8],  
                                     F.sample_dir + "/samplemsk_" + str(counter) + ".png")
                         print("new samples stored!!")
                      

@@ -94,7 +94,6 @@ def get_image_and_mask(image_file):
 	except:
 		flag = False
 
-
 	mask = np.expand_dims(mask, -1)
 	bbox = image_name_bbox[image_file.split('/')[1].split('.')[0]]
 	bbox = np.array(bbox).astype(np.float32)
@@ -103,14 +102,11 @@ def get_image_and_mask(image_file):
 	try:
 		imgs_cropped = custom_crop(imgs, bbox)
 		mask_cropped = custom_crop(mask, bbox)
-		# print (mask_cropped.shape)
 		imgs_reshaped = imresize(imgs_cropped, (out_shape, out_shape))
-		# print (np.min(mask_cropped), np.max(mask_cropped))
 		mask_reshaped = resize(mask_cropped, (out_shape, out_shape)) * 255
 	except:
 		flag = False
 
-	# print ('sdkjvb ', np.max(imgs_reshaped), np.min(imgs_reshaped), np.mean(imgs_reshaped))
 	return flag, imgs_reshaped, mask_reshaped
 
 
@@ -145,7 +141,6 @@ if __name__ =='__main__':
 					single_tfrecord_imgs.append(img) #[counter] = img
 					single_tfrecord_mask.append(mask) #[counter] = mask
 					single_tfrecord_embs.append(embs) #[counter] = embs
-					# print (np.max(img), np.min(img), np.min(mask), np.max(mask))
 					counter += 1
 					per_class_count += 1
 

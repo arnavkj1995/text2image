@@ -29,6 +29,11 @@ class layout_GAN(object):
         else:
             self.is_crop = False
 
+    def my_func(x):
+        # x will be a numpy array with the contents of the placeholder below
+        x[x != 255] = 0 
+        return x
+
     def build_model(self):
         # main method for training the conditional GAN
         if F.use_tfrecords == True:
@@ -44,8 +49,10 @@ class layout_GAN(object):
                 self.images = tf.image.resize_images(self.images, (64, 64))
                 self.keypoints = tf.image.resize_images(self.keypoints, (64, 64))
 
+            # self.keypoints = tf.py_func(self.my_func, [self.keypoints], tf.float32)
+            # self.keypoints.set_shape()
             self.images = (self.images / 127.5) - 1
-            self.keypoints = self.keypoints / 255.0
+            self.keypoints = (self.keypoints / 127.5) - 1
 
         else:    
             self.images = tf.placeholder(tf.float32,
@@ -96,7 +103,7 @@ class layout_GAN(object):
         learning_rate_G = tf.train.exponential_decay(F.learning_rate_G, global_step,
                                                      decay_steps=F.decay_step,
                                                      decay_rate=F.decay_rate, staircase=True)
-        
+
         self.summary_op = tf.summary.merge_all()
 
         d_optim = tf.train.AdamOptimizer(learning_rate_D, beta1=F.beta1D)\
@@ -144,9 +151,6 @@ class layout_GAN(object):
                     # Update D network
                     iters = 1
                     feed_dict = {
-                      # self.images: zip(*sample_images)[0], 
-                      # self.text_emb: zip(*sample_images)[1],
-                      # self.real_labels: zip(*sample_images)[2],
                       self.z_gen: sample_z_gen,
                       self.is_training: True
                     }
@@ -180,9 +184,9 @@ class layout_GAN(object):
                             [self.G, self.keypoints,  self.d_loss, self.g_loss_actual],
                             feed_dict={self.z_gen: sample_z_gen, global_step: counter, self.is_training: False}
                         )
-                        save_images(samples, [8, 8],
+                        save_images(samples, [12, 12],
                                     F.sample_dir + "/sample_" + str(counter) + ".png")
-                        save_images(key_pts,  [8, 8],  
+                        save_images(key_pts,  [12, 12],  
                                     F.sample_dir + "/samplemsk_" + str(counter) + ".png")
                         print("new samples stored!!")
                      
@@ -203,70 +207,6 @@ class layout_GAN(object):
         coord.request_stop()
         coord.join(threads)
 
-    def same_z_diff_keypoints(self):
-        # call this while trying to show generated samples for same z-vector but different 
-        # keypoint maps
-        try:
-            tf.global_variables_initializer().run()
-        except:
-            tf.initialize_all_variables().run()
-
-        isLoaded = self.load(F.checkpoint_dir)
-        assert(isLoaded)
-
-        files = os.listdir('test_images/')
-        imgs = [x for x in files if 'im' in x]
-        keys = [x.replace('img', 'ky') for x in imgs][:64]
-
-        for i in range(200):
-            shuffle(files)
-            imgs = [x for x in files if 'im' in x]
-            keys = [x.replace('img', 'ky') for x in imgs][:64]
-            z_new = np.random.uniform(-1, 1, size=(F.z_dim))
-            batch_keypoints = np.array([get_image('test_images/' + batch_file, F.output_size, is_crop=self.is_crop)
-                         for batch_file in keys]).astype(np.float32)
-
-            fd = {
-                self.z_gen: [z_new] * F.batch_size,
-                self.keypoints: batch_keypoints,
-                self.is_training: False
-            }
-            G_imgs = self.sess.run(self.G, feed_dict=fd)
-
-            save_images(G_imgs, [8, 8], 'experiments/same_z_diff_k_image_' + str(i) + '.png')
-            save_images(batch_keypoints, [8, 8], 'experiments/same_z_diff_k_keypts_' + str(i) + '.png')
-
-    def diff_z_same_keypoints(self):
-        # call this while trying to show generated samples for different z-vectors but
-        # same keypoint map
-
-        try:
-            tf.global_variables_initializer().run()
-        except:
-            tf.initialize_all_variables().run()
-
-        isLoaded = self.load(F.checkpoint_dir)
-        assert(isLoaded)
-
-        files = os.listdir('test_images/')
-        imgs = [x for x in files if 'im' in x]
-        keys = [x.replace('img', 'ky') for x in imgs][:64]
-  
-        batch_keypoints = np.array([get_image('test_images/' + batch_file, F.output_size, is_crop=self.is_crop)
-                     for batch_file in keys]).astype(np.float32)
-
-        for i in range(200):
-            z_new = np.random.uniform(-1, 1, size=(F.batch_size, F.z_dim))
-            keypoints = np.array([batch_keypoints[(i * 7) % 64]] * F.batch_size)
-            fd = {
-                self.z_gen: z_new,
-                self.keypoints: keypoints,
-                self.is_training: False
-            }
-            G_imgs = self.sess.run(self.G, feed_dict=fd)
-
-            save_images(G_imgs, [8, 8], 'experiments/diff_z_same_k_image_' + str(i) + '.png')
-            save_images(keypoints, [8, 8], 'experiments/diff_z_same_k_keypts_' + str(i) + '.png')  
 
     def discriminator(self, image, keypoints, text_emb, reuse=False):
         with tf.variable_scope('D'):
@@ -300,7 +240,7 @@ class layout_GAN(object):
 
     def generator(self, z, keypoints, text_emb):
         dim = 64
-        k = 5
+        k = 4
         with tf.variable_scope("G"):
               s2, s4, s8, s16 = int(F.output_size / 2), int(F.output_size / 4), int(F.output_size / 8), int(F.output_size / 16)
               text_emb = linear(text_emb, 128, 'g_text_emb_lin')
@@ -312,7 +252,7 @@ class layout_GAN(object):
 
               h0 = z
             
-              h1 = tf.nn.relu(batch_norm(name='g_bn1')(conv2d(h0, dim * 2, 5, 5, 1, 1, name='g_h1_conv'), self.is_training))
+              h1 = tf.nn.relu(batch_norm(name='g_bn1')(conv2d(h0, dim * 2, 3, 3, 1, 1, name='g_h1_conv'), self.is_training))
               h2 = tf.nn.relu(batch_norm(name='g_bn2')(conv2d(h1, dim * 2, k, k, 2, 2, name='g_h2_conv'), self.is_training))
               h3 = tf.nn.relu(batch_norm(name='g_bn3')(conv2d(h2, dim * 4, k, k, 2, 2, name='g_h3_conv'), self.is_training))
               h4 = tf.nn.relu(batch_norm(name='g_bn4')(conv2d(h3, dim * 8, k, k, 2, 2, name='g_h4_conv'), self.is_training))

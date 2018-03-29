@@ -21,7 +21,7 @@ flags.DEFINE_integer("decay_step", 5000000, "Decay step of learning rate in epoc
 flags.DEFINE_float("decay_rate", 0.8, "Decay rate of learning rate")
 flags.DEFINE_float("eps", 1e-5, "Epsilon")
 flags.DEFINE_float("var", 1e-5, "Variance")
-flags.DEFINE_float("gpu_frac", 0.35, "Gpu fraction")
+flags.DEFINE_float("gpu_frac", 0.9, "Gpu fraction")
 flags.DEFINE_integer("no_of_samples", 50,
                      "no of samples for each noise vector Z during policy gradient")
 flags.DEFINE_boolean("teacher_forcing", False,
@@ -40,7 +40,7 @@ flags.DEFINE_float("lam", 0.1,
                       "lam for impainting")
 
 dataset = "cub"
-comment ="model_weights"
+comment ="model_weights_64_2"
 
 flags.DEFINE_float(
     "margin", 0.3, "Threshold to judge stopping of D and G nets training")

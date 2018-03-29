@@ -50,36 +50,3 @@ def read_and_decode(filename_queue, batch_size=64, emb_shape=2048,
                                                )
     
     return images, mask, emb
-
-if __name__ =='__main__':
-    tfrecords_filename = ['train_records/cub_2.tfrecords', 'train_records/cub_1.tfrecords', 'train_records/cub_0.tfrecords', 'train_records/cub_4.tfrecords']
-    filename_queue = tf.train.string_input_producer(
-                            tfrecords_filename, num_epochs=None)
-
-    imgs, masks, embs = read_and_decode(filename_queue, 64)
-
-    with tf.Session() as sess:
-      # Start populating the filename queue.
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
-
-        # time.sleep(5)
-        while not coord.should_stop():
-            # try:
-            # sleep(100)
-            for i in range(10):
-                # Retrieve a single instance:
-                img, mask, emb = sess.run([imgs, masks, embs])
-                print (img[0].shape, np.max(mask[0]), np.min(mask[0]), mask.shape, emb.shape)
-                scipy.misc.imsave('imgtest' + str(i) + '.png', img[0])
-                scipy.misc.imsave('masktest' + str(i) + '.png', np.reshape(mask[0], (128, 128)))
-            print ('Done')
-
-        # except tf.errors.OutOfRangeError:
-        #   print('Done training for')
-        # finally:
-        #   # When done, ask the threads to stop.
-        #   coord.request_stop()
-
-        coord.request_stop()
-        coord.join(threads)

@@ -13,11 +13,11 @@ import tensorflow as tf
 from scipy.misc import imsave, imresize
 
 FLAGS = None
-save_path = 'train_records/'
-images_dir_path = 'data/train/images/'
-images_root_path = '/users/TeamVideoSummarization/arnav/text2image/raw/2011/CUB_200_2011/images'
-segment_root_path = '/users/TeamVideoSummarization/arnav/text2image/raw/2011/segmentations'
-bbox_root = '../txt2image/data/raw/annotations-mat'
+save_path = ''
+images_dir_path = ''
+images_root_path = ''
+segment_root_path = ''
+bbox_root = ''
 out_shape = 128
 
 image_name_bbox = {}
@@ -109,12 +109,11 @@ def get_image_and_mask(image_file):
 
 	return flag, imgs_reshaped, mask_reshaped
 
-
 if __name__ =='__main__':
 
-	lines = open('raw/2011/CUB_200_2011/images.txt', 'r').readlines()
+	lines = open('CUB/CUB_200_2011/images.txt', 'r').readlines()
 	lines = [line.split(' ')[-1] for line in lines]
-	bbox_lines = open('raw/2011/CUB_200_2011/bounding_boxes.txt').readlines()
+	bbox_lines = open('CUB/CUB_200_2011/bounding_boxes.txt').readlines()
 	bbox_lines = [line.strip().split(' ', 1)[-1] for line in bbox_lines]
 	for idx, (img_path, bbox_dims) in enumerate(zip(lines, bbox_lines)):
 		image_name_bbox[img_path.split('/')[1].split('.')[0]] = bbox_dims.split(' ')
@@ -123,9 +122,9 @@ if __name__ =='__main__':
 	total_imgs = get_total_images('cub_icml')
 	for idx in range(10):
 		print ('Generating tfrecords for embedding #{}'.format(idx))
-		single_tfrecord_imgs = [] #np.empty((total_imgs, out_shape, out_shape, 3))
-		single_tfrecord_mask = [] #np.empty((total_imgs, out_shape, out_shape, 1))
-		single_tfrecord_embs = [] #np.empty((total_imgs, 1024))
+		single_tfrecord_imgs = []
+		single_tfrecord_mask = []
+		single_tfrecord_embs = []
 		counter = 0
 		for class_idx, class_dir in enumerate(classes_dir):
 			files = os.listdir(os.path.join('cub_icml', class_dir))
@@ -145,8 +144,4 @@ if __name__ =='__main__':
 					per_class_count += 1
 
 			sys.stdout.write ('{:2d}/{:2d} images processed\n'.format(per_class_count, len(files)))
-		# if single_tfrecord_mask.shape[0] != total_imgs:
-		# 	single_tfrecord_imgs = single_tfrecord_embs[counter]
-		# 	single_tfrecord_mask = single_tfrecord_embs[counter]
-		# 	single_tfrecord_embs = single_tfrecord_embs[counter]
 		convert_to(np.asarray(single_tfrecord_imgs, dtype=np.uint8), np.asarray(single_tfrecord_mask, dtype=np.uint8), np.asarray(single_tfrecord_embs, dtype=np.float32), 'cub_' + str(idx))
